@@ -46,6 +46,14 @@ services:
         target: /home/user/.config/google-drive-mcp
         read_only: false
 
+      # Tokens OAuth Google Calendar (créés à la première auth calendar)
+      # Le dossier doit exister sur l'hôte avant le premier lancement :
+      #   mkdir -p ~/.config/google-calendar-mcp
+      - type: bind
+        source: ${HOME}/.config/google-calendar-mcp
+        target: /home/user/.config/google-calendar-mcp
+        read_only: false
+
       # Dossier de code — paramétrable via WORKSPACE, rw par défaut
       - type: bind
         source: ${WORKSPACE:-${HOME}/www/c}

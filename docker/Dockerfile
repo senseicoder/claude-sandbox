@@ -6,6 +6,7 @@ RUN npm install -g \
         @anthropic-ai/claude-code \
         @gongrzhe/server-gmail-autoauth-mcp \
         @piotr-agier/google-drive-mcp \
+        @nspady/google-calendar-mcp \
     && apt-get update && apt-get install -y --no-install-recommends \
         git \
         curl \

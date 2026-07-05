@@ -13,6 +13,14 @@
       "env": {
         "GOOGLE_DRIVE_OAUTH_CREDENTIALS": "/home/user/.config/google-drive-mcp/gcp-oauth.keys.json"
       }
+    },
+    "google-calendar": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@nspady/google-calendar-mcp"],
+      "env": {
+        "GOOGLE_OAUTH_CREDENTIALS": "/home/user/.config/google-drive-mcp/gcp-oauth.keys.json"
+      }
     }
   }
 }
