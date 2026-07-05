@@ -21,9 +21,12 @@ En cas de compromission de l'instance Claude Code (injection de prompt, MCP malv
 | Volume hôte | Point de montage | Mode |
 |---|---|---|
 | `~/.claude/` | `/home/user/.claude/` | rw — config, mémoire, sessions |
+| `~/.ssh/` | `/home/user/.ssh/` | ro — clés SSH pour mcp-infra-readonly |
+| `config/mcp.json` | `/home/user/.claude.json` | ro — configuration des MCP (Gmail, GDrive, Calendar, infra) |
+| `~/.config/google-drive-mcp/` | `/home/user/.config/google-drive-mcp/` | rw — tokens OAuth Google Drive |
+| `~/.config/google-calendar-mcp/` | `/home/user/.config/google-calendar-mcp/` | rw — tokens OAuth Google Calendar |
 | `~/www/c/` (ou autre dossier code) | `/workspace/` | rw — code à éditer |
 | `~/claude-exchange/` | `/exchange/` | rw — dossier d'échange fichiers |
-| `~/.config/` (partiel) | `/home/user/.config/` | ro — config outils |
 
 Les répertoires système du conteneur (`/usr`, `/bin`, `/etc`, `/lib`) sont en lecture seule.
 Les écritures nécessaires au runtime (logs, tmp) sont servies par des tmpfs en mémoire.
@@ -32,7 +35,14 @@ Les écritures nécessaires au runtime (logs, tmp) sont servies par des tmpfs en
 
 - Docker ≥ 20.10
 - Claude Code installé localement (pour construire l'image)
-- `~/claude-exchange/` créé sur l'hôte : `mkdir -p ~/claude-exchange`
+- Dossiers à créer sur l'hôte avant le premier lancement :
+  ```bash
+  mkdir -p ~/claude-exchange
+  mkdir -p ~/.config/google-drive-mcp
+  mkdir -p ~/.config/google-calendar-mcp
+  ```
+- Fichier de credentials Google Drive dans `~/.config/google-drive-mcp/gcp-oauth.keys.json` (voir `mcp/README.md`)
+- Clé API Anthropic dans l'environnement : `export ANTHROPIC_API_KEY=sk-...`
 
 ## Utilisation rapide
 
