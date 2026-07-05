@@ -132,13 +132,15 @@ Attention : Claude Code a besoin d'accès à `api.anthropic.com`. Il faut soit a
 
 ### ⚠️ ~/.ssh monté en lecture seule — surface d'attaque élargie
 
-**Description** : le volume `~/.ssh` est monté en ro pour permettre aux MCP SSH (gmail, gdrive-pro → mnementh7) de fonctionner. Les clés SSH privées sont donc accessibles dans le conteneur.
+**Description** : le volume `~/.ssh` est monté en ro pour permettre au MCP `mcp-infra-readonly` d'accéder aux serveurs d'infrastructure via SSH. Les clés SSH privées sont donc accessibles dans le conteneur.
+
+**Contexte** : ce montage n'est pas lié aux MCP Gmail/GDrive/Calendar, qui sont désormais installés en natif dans le conteneur et utilisent OAuth (pas SSH). Il est exclusivement nécessaire pour l'accès lecture aux serveurs via `mcp-infra-readonly`.
 
 **Impact** : si Claude Code est compromis, il peut lire les clés SSH et les utiliser pour se connecter à n'importe quel serveur accessible depuis le poste.
 
-**Mitigation possible** : créer une clé SSH dédiée au conteneur sandbox, avec droits restreints sur mnementh7 uniquement (pas d'accès aux serveurs infra). Monter uniquement `~/.ssh/config` + la clé dédiée plutôt que `~/.ssh/` entier.
+**Mitigation possible** : créer une clé SSH dédiée au conteneur sandbox, avec droits restreints sur les seuls serveurs infra (pas d'accès à d'autres machines). Monter uniquement `~/.ssh/config` + la clé dédiée plutôt que `~/.ssh/` entier.
 
-**Todo** : créer `~/.ssh/id_sandbox` et configurer `~/.ssh/config` pour que les hosts MCP utilisent cette clé.
+**Todo** : créer `~/.ssh/id_sandbox` et configurer `~/.ssh/config` pour que mcp-infra-readonly utilise cette clé.
 
 ---
 
@@ -167,5 +169,5 @@ Attention : Claude Code a besoin d'accès à `api.anthropic.com`. Il faut soit a
 | Évasion kernel/Docker | ⚠️ atténué par user 1000 | CVE non patchées | Basse |
 | Supply chain npm | ⚠️ versions non verrouillées | dépendances non auditées | Moyenne |
 | MCP tiers malveillant | ⚠️ non filtré | accès réseau MCP | Haute |
-| ~/.ssh monté — clés SSH exposées | ⚠️ nécessaire pour MCP | clé dédiée sandbox à créer | Moyenne |
+| ~/.ssh monté — clés SSH exposées | ⚠️ nécessaire pour mcp-infra-readonly | clé dédiée sandbox à créer | Moyenne |
 | MindWTR (localhost:3456) inaccessible | ℹ️ réseau bridge | network_mode: host si besoin | Info |
