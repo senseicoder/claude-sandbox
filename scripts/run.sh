@@ -8,8 +8,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="$SCRIPT_DIR/../docker/compose.yml"
 
-# Créer le dossier d'échange s'il n'existe pas
+# Créer les dossiers nécessaires avant le bind mount (un dossier absent = erreur Docker)
 mkdir -p "$HOME/claude-exchange"
+mkdir -p "$HOME/.config/google-drive-mcp"
+mkdir -p "$HOME/.config/google-calendar-mcp"
 
 # Vérifier que la clé API est disponible
 if [[ -z "${ANTHROPIC_API_KEY:-}" ]]; then
