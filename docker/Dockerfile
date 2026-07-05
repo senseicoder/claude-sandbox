@@ -1,9 +1,12 @@
 FROM node:20-slim
 
-# Installer Claude Code en tant que root, puis verrouiller
-RUN npm install -g @anthropic-ai/claude-code && \
-    # Supprimer les outils inutiles pour réduire la surface d'attaque
-    apt-get update && apt-get install -y --no-install-recommends \
+# Installer Claude Code + MCP natifs (gmail, gdrive-pro)
+# Évite de passer par SSH vers mnementh7 pour ces deux MCP
+RUN npm install -g \
+        @anthropic-ai/claude-code \
+        @gongrzhe/server-gmail-autoauth-mcp \
+        @piotr-agier/google-drive-mcp \
+    && apt-get update && apt-get install -y --no-install-recommends \
         git \
         curl \
         ca-certificates \

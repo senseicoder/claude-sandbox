@@ -33,12 +33,18 @@ services:
         target: /home/user/.claude
         read_only: false
 
-      # Clés SSH — lecture seule, nécessaires pour les MCP qui passent par SSH
-      # (gmail, gdrive-pro se connectent à mnementh7 via SSH)
+      # Config MCP locale : gmail + gdrive-pro installés en natif dans le container
+      # Remplace la connexion SSH vers mnementh7 — plus besoin de monter ~/.ssh
       - type: bind
-        source: ${HOME}/.ssh
-        target: /home/user/.ssh
+        source: ${PWD}/../config/mcp.json
+        target: /home/user/.claude.json
         read_only: true
+
+      # Tokens OAuth Google Drive (créés/mis à jour à la première auth gdrive)
+      - type: bind
+        source: ${HOME}/.config/google-drive-mcp
+        target: /home/user/.config/google-drive-mcp
+        read_only: false
 
       # Dossier de code — paramétrable via WORKSPACE, rw par défaut
       - type: bind
