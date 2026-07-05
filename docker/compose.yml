@@ -33,6 +33,13 @@ services:
         target: /home/user/.claude
         read_only: false
 
+      # Clés SSH — lecture seule, nécessaires pour les MCP qui passent par SSH
+      # (gmail, gdrive-pro se connectent à mnementh7 via SSH)
+      - type: bind
+        source: ${HOME}/.ssh
+        target: /home/user/.ssh
+        read_only: true
+
       # Dossier de code — paramétrable via WORKSPACE, rw par défaut
       - type: bind
         source: ${WORKSPACE:-${HOME}/www/c}
