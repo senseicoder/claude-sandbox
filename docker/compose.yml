@@ -33,8 +33,13 @@ services:
         target: /home/user/.claude
         read_only: false
 
-      # Config MCP locale : gmail + gdrive-pro installés en natif dans le container
-      # Remplace la connexion SSH vers mnementh7 — plus besoin de monter ~/.ssh
+      # Clés SSH — lecture seule (accès serveurs via mcp-infra-readonly ou SSH direct)
+      - type: bind
+        source: ${HOME}/.ssh
+        target: /home/user/.ssh
+        read_only: true
+
+      # Config MCP locale : gmail + gdrive-pro + calendar installés en natif
       - type: bind
         source: ${PWD}/../config/mcp.json
         target: /home/user/.claude.json
