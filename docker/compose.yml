@@ -1,0 +1,58 @@
+services:
+  claude:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: claude-sandbox:latest
+
+    # Système de fichiers en lecture seule — les écritures hors volumes échouent
+    read_only: true
+
+    # Tmpfs pour les zones d'écriture système nécessaires au runtime
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+      - /home/user/.npm:size=64m    # cache npm si nécessaire
+      - /run:size=16m
+
+    # Sécurité : supprimer toutes les capabilities Linux
+    cap_drop:
+      - ALL
+    # Aucune capability ajoutée — Claude Code n'en a pas besoin
+
+    security_opt:
+      - no-new-privileges:true  # interdit l'escalade de privilèges via setuid/setgid
+
+    # Utilisateur non privilégié (doit correspondre au uid/gid de l'image)
+    user: "1000:1000"
+
+    # Volumes montés depuis l'hôte
+    volumes:
+      # Config et mémoire Claude Code — lecture/écriture (Claude doit pouvoir sauvegarder)
+      - type: bind
+        source: ${HOME}/.claude
+        target: /home/user/.claude
+        read_only: false
+
+      # Dossier de code — paramétrable via WORKSPACE, rw par défaut
+      - type: bind
+        source: ${WORKSPACE:-${HOME}/www/c}
+        target: /workspace
+        read_only: false
+
+      # Dossier d'échange pour passer des fichiers au conteneur et en récupérer
+      - type: bind
+        source: ${HOME}/claude-exchange
+        target: /exchange
+        read_only: false
+
+    # Variables d'environnement transmises depuis l'hôte
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - HOME=/home/user
+
+    # Mode interactif (nécessaire pour Claude Code TUI)
+    stdin_open: true
+    tty: true
+
+    # Pas de restart automatique — sessions explicites uniquement
+    restart: "no"
