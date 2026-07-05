@@ -1,0 +1,25 @@
+# Credentials et tokens OAuth — ne jamais committer
+config/credentials*.json
+config/tokens*.json
+config/gcp-oauth*.json
+config/*.key
+config/*.pem
+config/.env
+
+# Variables d'environnement
+.env
+.env.*
+*.env
+
+# Fichiers de tokens générés par les MCP
+config/gmail-tokens/
+config/gdrive-tokens/
+config/calendar-tokens/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
