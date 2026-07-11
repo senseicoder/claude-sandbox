@@ -1,4 +1,32 @@
+networks:
+  # Créé par mcp-services (external: true) — claude-sandbox le rejoint pour atteindre
+  # les conteneurs MCP (Gmail, Drive, Calendar, Jira, IMAP, Freebox, infra). internal:
+  # true côté définition mcp-services — aucune route vers Internet depuis ce réseau.
+  # Voir docs/adr/ADR-001-isolation-reseau-mcp-net.md.
+  mcp-sandbox-net:
+    external: true
+
+  # Sortie Internet réelle, réservée à egress-proxy — jamais rejoint par le conteneur
+  # claude lui-même.
+  egress-net:
+    driver: bridge
+
 services:
+  egress-proxy:
+    build:
+      context: ./egress-proxy
+      dockerfile: Dockerfile
+    image: claude-sandbox/egress-proxy:latest
+    read_only: true
+    tmpfs:
+      - /var/spool/squid:size=16m
+      - /var/log/squid:size=8m
+      - /var/run:size=4m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [mcp-sandbox-net, egress-net]
+    restart: "no"
+
   claude:
     build:
       context: .
@@ -25,6 +53,12 @@ services:
     # Utilisateur non privilégié (doit correspondre au uid/gid de l'image)
     user: "1000:1000"
 
+    # Uniquement mcp-sandbox-net — aucune autre route réseau, ni Internet ni poste
+    # hôte (voir docs/adr/ADR-001-isolation-reseau-mcp-net.md).
+    networks: [mcp-sandbox-net]
+
+    depends_on: [egress-proxy]
+
     # Volumes montés depuis l'hôte
     volumes:
       # Config et mémoire Claude Code — lecture/écriture (Claude doit pouvoir sauvegarder)
@@ -33,41 +67,34 @@ services:
         target: /home/user/.claude
         read_only: false
 
-      # Clés SSH — lecture seule (accès serveurs via mcp-infra-readonly ou SSH direct)
-      - type: bind
-        source: ${HOME}/.ssh
-        target: /home/user/.ssh
-        read_only: true
-
-      # Config MCP locale : gmail + gdrive-pro + calendar installés en natif
+      # Config MCP locale : tous les services mcp-services référencés par leur nom DNS
+      # Docker (voir config/mcp.json) — plus de credentials ni de commande npx ici.
       - type: bind
         source: ${PWD}/../config/mcp.json
         target: /home/user/.claude.json
         read_only: true
 
-      # Tokens OAuth Google Drive (créés/mis à jour à la première auth gdrive)
+      # Code — tout ~/www (perso www/c/ et pro www/e/), en écriture (le LLM doit
+      # pouvoir modifier le code). Monté au même chemin absolu que sur l'hôte (pas
+      # /workspace) pour ne pas casser les références de chemin dans les fichiers
+      # (CLAUDE.md, scripts...). Décision Cédric 2026-07-11, voir ADR-003.
       - type: bind
-        source: ${HOME}/.config/google-drive-mcp
-        target: /home/user/.config/google-drive-mcp
+        source: ${HOME}/www
+        target: /home/cedric/www
         read_only: false
 
-      # Tokens OAuth Google Calendar (créés à la première auth calendar)
-      # Le dossier doit exister sur l'hôte avant le premier lancement :
-      #   mkdir -p ~/.config/google-calendar-mcp
+      # Vault Obsidian — lecture/écriture, même chemin absolu que l'hôte pour les
+      # mêmes raisons (wiki, orga.perso.md, orga.claude.md référencent des chemins
+      # absolus entre eux). Décision Cédric 2026-07-11, voir ADR-003.
       - type: bind
-        source: ${HOME}/.config/google-calendar-mcp
-        target: /home/user/.config/google-calendar-mcp
+        source: ${HOME}/Sync/Central/Dossiers/obsidian
+        target: /home/cedric/Sync/Central/Dossiers/obsidian
         read_only: false
 
-      # Dossier de code — paramétrable via WORKSPACE, rw par défaut
+      # Dossier d'échange — convention ~/Work/cnt/<nom-conteneur>, réutilisable pour
+      # de futurs conteneurs. Voir ADR-003.
       - type: bind
-        source: ${WORKSPACE:-${HOME}/www/c}
-        target: /workspace
-        read_only: false
-
-      # Dossier d'échange pour passer des fichiers au conteneur et en récupérer
-      - type: bind
-        source: ${HOME}/claude-exchange
+        source: ${HOME}/Work/cnt/claude-sandbox
         target: /exchange
         read_only: false
 
@@ -75,6 +102,9 @@ services:
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - HOME=/home/user
+      # Seule sortie réseau autorisée — voir egress-proxy/squid.conf pour l'ACL.
+      - HTTPS_PROXY=http://egress-proxy:3128
+      - HTTP_PROXY=http://egress-proxy:3128
 
     # Mode interactif (nécessaire pour Claude Code TUI)
     stdin_open: true

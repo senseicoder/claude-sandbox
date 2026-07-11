@@ -2,58 +2,62 @@
 
 Les MCP sont configurés via `config/mcp.json` à la racine du repo, monté en lecture seule comme `/home/user/.claude.json` dans le conteneur. Claude Code lit ce fichier au démarrage comme sa configuration MCP globale.
 
+Depuis le 2026-07-11, **tous les MCP externes sont servis en réseau par `mcp-services`** (repo séparé) — plus aucun MCP natif (npm) ni credential dans l'image `claude-sandbox`. Voir `docs/adr/ADR-002-migration-mcp-services.md`.
+
 ## Architecture
 
 ```
-Hôte                                   Conteneur
+Hôte                                   Conteneur claude
 ─────────────────────────              ─────────────────────────────────
 config/mcp.json (ce repo) ──── ro ──▶  /home/user/.claude.json
+                                        (référence les services ci-dessous
+                                         par leur nom DNS Docker)
 
-~/.config/google-drive-mcp/  ─ rw ──▶  /home/user/.config/google-drive-mcp/
-~/.config/google-calendar-mcp/ rw ──▶  /home/user/.config/google-calendar-mcp/
-~/.ssh/                       ─ ro ──▶  /home/user/.ssh/
+mcp-sandbox-net (Docker, internal)  ◀──▶  mcp-google-pro:8001/8002/8003
+                                           mcp-google-perso:8004/8005/8006
+                                           mcp-jira:8100
+                                           mcp-mindwtr:8787
+                                           mcp-infra:8300
+                                           mcp-imap:8400
+                                           mcp-freebox:8500
 ```
+
+Le conteneur `claude` ne monte plus `~/.ssh/` ni aucun dossier de tokens OAuth — ces
+secrets vivent exclusivement dans les conteneurs `mcp-services` correspondants,
+jamais accessibles depuis ici.
 
 ## MCP configurés
 
-### Gmail (`@gongrzhe/server-gmail-autoauth-mcp`)
+Tous accessibles via HTTP/SSE réseau, aucune commande locale (`npx`, `ssh`, etc.) :
 
-MCP npm installé nativement dans l'image. Authentification OAuth interactive au premier lancement.
+| Nom dans `mcp.json` | Service `mcp-services` | Type |
+|---|---|---|
+| `gmail-pro`, `gdrive-pro`, `gcal-pro` | `mcp-google-pro` | sse |
+| `gmail-perso`, `gdrive-perso`, `gcal-perso` | `mcp-google-perso` | sse |
+| `jira` | `mcp-jira` | http |
+| `mindwtr` | `mcp-mindwtr` | sse |
+| `infra` | `mcp-infra` | sse |
+| `imap` | `mcp-imap` | http |
+| `freebox` | `mcp-freebox` | http |
 
-### Google Drive (`@piotr-agier/google-drive-mcp`)
+Le type (`sse` vs `http`) dépend de l'implémentation côté `mcp-services` : `sse` pour
+les MCP tiers pontés via `mcp-proxy` (stdio→réseau), `http` (streamable-http natif)
+pour les serveurs MCP Python écrits directement pour ce repo (Jira, IMAP, Freebox).
 
-MCP npm installé nativement. Utilise `~/.config/google-drive-mcp/gcp-oauth.keys.json` pour les credentials. Les tokens générés sont persistés dans `~/.config/google-drive-mcp/` (volume rw).
+## Prérequis avant de lancer claude-sandbox
 
-Pour créer le fichier de credentials :
-1. Créer un projet GCP avec l'API Drive activée
-2. Créer des credentials OAuth2 Desktop app
-3. Télécharger le JSON → `~/.config/google-drive-mcp/gcp-oauth.keys.json`
-
-### Google Calendar (`@nspady/google-calendar-mcp`)
-
-MCP npm installé nativement. Partage le fichier `gcp-oauth.keys.json` de GDrive (même projet GCP). Les tokens sont persistés dans `~/.config/google-calendar-mcp/` (volume rw).
-
-### mcp-infra-readonly
-
-Ce MCP n'est pas installé dans l'image. Il est accessible depuis le conteneur via SSH : le repo `mcp-infra-readonly` doit être installé sur le serveur cible, et Claude le lance via SSH en passant par les clés montées depuis `~/.ssh/`.
-
-Configuration dans `config/mcp.json` :
-```json
-"infra": {
-  "command": "ssh",
-  "args": ["<serveur>", "python -m mcp_infra.server"],
-  "env": {}
-}
-```
-
-## Premier lancement
-
-Au premier lancement, les MCP Gmail et Google Drive/Calendar demanderont une authentification OAuth interactive. Un lien URL sera affiché dans le terminal — ouvrir dans un navigateur, s'authentifier, puis copier le code de retour. Les tokens sont ensuite sauvegardés dans les volumes rw et réutilisés automatiquement.
+`mcp-services` doit déjà tourner (au moins les services listés ci-dessus dont Claude
+a besoin) — `claude-sandbox` ne les démarre pas, il les consomme. Voir
+`mcp-services/README.md` pour le lancement (`scripts/launch.sh`).
 
 ## Modifier la configuration MCP
 
-Éditer `config/mcp.json` dans ce repo. Le fichier est monté en ro dans le conteneur — aucun redémarrage du service MCP n'est nécessaire, mais il faut redémarrer le conteneur pour que Claude recharge sa config.
+Éditer `config/mcp.json` dans ce repo. Le fichier est monté en ro dans le conteneur —
+redémarrer le conteneur `claude` pour que la config soit rechargée.
 
 ## Note de sécurité
 
-`config/mcp.json` ne contient aucun secret — uniquement des commandes et des chemins de fichiers. Les credentials OAuth réels sont dans `~/.config/google-drive-mcp/` sur l'hôte, hors du repo git.
+`config/mcp.json` ne contient que des URLs internes au réseau Docker — aucun secret,
+aucune commande, aucun chemin de credentials. Les secrets réels (tokens OAuth,
+mots de passe, API keys) vivent exclusivement côté `mcp-services`, injectés au
+lancement via `cmdp`, jamais visibles de `claude-sandbox`.

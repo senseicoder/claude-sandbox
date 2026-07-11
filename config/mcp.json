@@ -1,26 +1,15 @@
 {
   "mcpServers": {
-    "gmail": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@gongrzhe/server-gmail-autoauth-mcp"],
-      "env": {}
-    },
-    "gdrive-pro": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@piotr-agier/google-drive-mcp"],
-      "env": {
-        "GOOGLE_DRIVE_OAUTH_CREDENTIALS": "/home/user/.config/google-drive-mcp/gcp-oauth.keys.json"
-      }
-    },
-    "google-calendar": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@nspady/google-calendar-mcp"],
-      "env": {
-        "GOOGLE_OAUTH_CREDENTIALS": "/home/user/.config/google-drive-mcp/gcp-oauth.keys.json"
-      }
-    }
+    "gmail-pro": { "type": "sse", "url": "http://mcp-google-pro:8001/sse" },
+    "gdrive-pro": { "type": "sse", "url": "http://mcp-google-pro:8002/sse" },
+    "gcal-pro": { "type": "sse", "url": "http://mcp-google-pro:8003/sse" },
+    "gcal-perso": { "type": "sse", "url": "http://mcp-google-perso:8004/sse" },
+    "gmail-perso": { "type": "sse", "url": "http://mcp-google-perso:8005/sse" },
+    "gdrive-perso": { "type": "sse", "url": "http://mcp-google-perso:8006/sse" },
+    "jira": { "type": "http", "url": "http://mcp-jira:8100/mcp" },
+    "mindwtr": { "type": "sse", "url": "http://mcp-mindwtr:8787/sse" },
+    "infra": { "type": "sse", "url": "http://mcp-infra:8300/sse" },
+    "imap": { "type": "http", "url": "http://mcp-imap:8400/mcp" },
+    "freebox": { "type": "http", "url": "http://mcp-freebox:8500/mcp" }
   }
 }

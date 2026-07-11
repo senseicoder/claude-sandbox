@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
 # Lance une session Claude Code dans le conteneur isolé.
 # Usage : ./scripts/run.sh [args claude...]
-#         WORKSPACE=~/www/e/mon-projet ./scripts/run.sh
+#
+# Tout ~/www est monté d'office (voir docs/adr/ADR-003) — plus de variable
+# WORKSPACE, plus de credentials Google natifs à préparer (voir ADR-002).
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="$SCRIPT_DIR/../docker/compose.yml"
 
-# Créer les dossiers nécessaires avant le bind mount (un dossier absent = erreur Docker)
-mkdir -p "$HOME/claude-exchange"
-mkdir -p "$HOME/.config/google-drive-mcp"
-mkdir -p "$HOME/.config/google-calendar-mcp"
+# Créer le dossier d'échange avant le bind mount (un dossier absent = erreur Docker) —
+# convention ~/Work/cnt/<nom-conteneur>, réutilisable pour de futurs conteneurs.
+mkdir -p "$HOME/Work/cnt/claude-sandbox"
 
 # Vérifier que la clé API est disponible
 if [[ -z "${ANTHROPIC_API_KEY:-}" ]]; then

@@ -52,6 +52,24 @@ ce qu'une telle instance peut faire sur le système hôte.
 
 ---
 
+### ✅ Exfiltration de données via le réseau (résolu 2026-07-11)
+
+**Mécanisme** : réseau `mcp-sandbox-net` (`internal: true`) — aucune route vers Internet. Le conteneur `claude` ne rejoint que ce réseau, rien d'autre. Voir `docs/adr/ADR-001-isolation-reseau-mcp-net.md`.
+
+**Ce que ça bloque** : toute requête HTTP/HTTPS vers un serveur tiers, y compris vers le poste hôte lui-même (`internal: true` ne route que vers les autres conteneurs du même réseau Docker).
+
+**Exception documentée** : `api.anthropic.com`, seule sortie nécessaire à Claude Code lui-même — via `egress-proxy` (squid), dual-homed (`mcp-sandbox-net` + `egress-net`), ACL stricte par domaine. Aucun autre domaine autorisé.
+
+---
+
+### ✅ ~/.ssh — clés SSH exposées (résolu 2026-07-11)
+
+**Ancien mécanisme** : `~/.ssh` était monté en lecture seule pour que `mcp-infra-readonly` (alors exécuté ici) puisse s'en servir.
+
+**Résolution** : `mcp-infra-readonly` est désormais un service réseau dans `mcp-services`, avec la clé SSH montée dans **son propre** conteneur, jamais dans `claude-sandbox`. Ce repo ne monte plus `~/.ssh` du tout — le risque est fermé par suppression, pas par mitigation partielle. Voir `docs/adr/ADR-002-migration-mcp-services.md`.
+
+---
+
 ### ✅ Persistence entre sessions
 
 **Mécanisme** : le conteneur est éphémère (`restart: "no"`, `--rm` dans run.sh). Seuls les volumes montés persistent.
@@ -61,24 +79,6 @@ ce qu'une telle instance peut faire sur le système hôte.
 ---
 
 ## Risques restants
-
-### ⚠️ Exfiltration de données via le réseau
-
-**Description** : le conteneur a accès au réseau par défaut (bridge Docker). Claude peut faire des requêtes HTTP/HTTPS vers l'extérieur, envoyer des données à un serveur tiers.
-
-**Impact** : exfiltration des secrets présents dans les volumes montés (`~/.claude/`, workspace).
-
-**Mitigation possible** : créer un réseau Docker sans accès internet ou avec un firewall egress strict.
-```yaml
-# compose.yml — à ajouter
-networks:
-  default:
-    driver: bridge
-    internal: true  # pas d'accès internet
-```
-Attention : Claude Code a besoin d'accès à `api.anthropic.com`. Il faut soit autoriser uniquement ce domaine (via proxy), soit accepter ce risque résiduel.
-
----
 
 ### ⚠️ Lecture de l'intégralité de ~/.claude/ et du workspace
 
@@ -130,27 +130,11 @@ Attention : Claude Code a besoin d'accès à `api.anthropic.com`. Il faut soit a
 
 ---
 
-### ⚠️ ~/.ssh monté en lecture seule — surface d'attaque élargie
+### ℹ️ MindWTR — résolu différemment (2026-07-11)
 
-**Description** : le volume `~/.ssh` est monté en ro pour permettre au MCP `mcp-infra-readonly` d'accéder aux serveurs d'infrastructure via SSH. Les clés SSH privées sont donc accessibles dans le conteneur.
+**Ancien problème** : le tunnel SSH vers mnementh7 exposait l'API MindWTR sur `localhost:3456` de l'hôte, invisible depuis le réseau bridge Docker.
 
-**Contexte** : ce montage n'est pas lié aux MCP Gmail/GDrive/Calendar, qui sont désormais installés en natif dans le conteneur et utilisent OAuth (pas SSH). Il est exclusivement nécessaire pour l'accès lecture aux serveurs via `mcp-infra-readonly`.
-
-**Impact** : si Claude Code est compromis, il peut lire les clés SSH et les utiliser pour se connecter à n'importe quel serveur accessible depuis le poste.
-
-**Mitigation possible** : créer une clé SSH dédiée au conteneur sandbox, avec droits restreints sur les seuls serveurs infra (pas d'accès à d'autres machines). Monter uniquement `~/.ssh/config` + la clé dédiée plutôt que `~/.ssh/` entier.
-
-**Todo** : créer `~/.ssh/id_sandbox` et configurer `~/.ssh/config` pour que mcp-infra-readonly utilise cette clé.
-
----
-
-### ℹ️ MindWTR (localhost:3456) non accessible depuis le conteneur
-
-**Description** : le tunnel SSH vers mnementh7 expose l'API MindWTR sur `localhost:3456` de l'hôte. Le réseau bridge Docker ne voit pas ce localhost.
-
-**Mitigation** : soit utiliser `network_mode: host` (réduit l'isolation réseau), soit créer un service Docker supplémentaire qui proxy le port. Pour l'instant, MindWTR n'est pas disponible dans la sandbox — les scripts MindWTR (`mw-tasks.sh`, etc.) échoueront silencieusement.
-
-**Todo** : évaluer si `network_mode: host` est acceptable pour les sessions sandbox nécessitant MindWTR.
+**Résolution** : `mcp-mindwtr` est désormais un service réseau dans `mcp-services` (dual-homed `mcp-net`/`mcp-sandbox-net`), joignable via `http://mcp-mindwtr:8787/sse` — plus de dépendance à un `localhost` de l'hôte. Voir `config/mcp.json`.
 
 ---
 
@@ -163,11 +147,11 @@ Attention : Claude Code a besoin d'accès à `api.anthropic.com`. Il faut soit a
 | Escalade via setuid | ✅ no-new-privileges | — | — |
 | Exécution en root | ✅ user 1000 | — | — |
 | Persistence conteneur | ✅ éphémère | — | — |
-| Exfiltration réseau | ⚠️ non restreint | réseau bridge ouvert | Haute |
-| Lecture volumes sensibles | ⚠️ granularité grossière | ~/.claude/ entier exposé | Moyenne |
-| Écriture dans volumes | ⚠️ intentionnel | possible corruption | Moyenne |
+| Exfiltration réseau | ✅ mcp-sandbox-net internal + egress-proxy | — | — |
+| ~/.ssh monté — clés SSH exposées | ✅ supprimé (mcp-infra-readonly isolé ailleurs) | — | — |
+| Lecture volumes sensibles | ⚠️ granularité grossière | ~/.claude/, ~/www, vault Obsidian entiers exposés | Moyenne |
+| Écriture dans volumes | ⚠️ intentionnel | possible corruption sur www/vault entiers, pas un seul projet | Moyenne |
 | Évasion kernel/Docker | ⚠️ atténué par user 1000 | CVE non patchées | Basse |
 | Supply chain npm | ⚠️ versions non verrouillées | dépendances non auditées | Moyenne |
-| MCP tiers malveillant | ⚠️ non filtré | accès réseau MCP | Haute |
-| ~/.ssh monté — clés SSH exposées | ⚠️ nécessaire pour mcp-infra-readonly | clé dédiée sandbox à créer | Moyenne |
-| MindWTR (localhost:3456) inaccessible | ℹ️ réseau bridge | network_mode: host si besoin | Info |
+| MCP tiers malveillant | ⚠️ non filtré | accès réseau MCP (mais chaque MCP tourne isolé côté mcp-services) | Haute |
+| MindWTR | ✅ résolu — service réseau mcp-services | — | — |
