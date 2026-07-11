@@ -19,11 +19,21 @@ services:
     image: claude-sandbox/egress-proxy:latest
     read_only: true
     tmpfs:
-      - /var/spool/squid:size=16m
-      - /var/log/squid:size=8m
-      - /var/run:size=4m
+      # mode=1777 nécessaire : le tmpfs par défaut est root:root 755, pas
+      # inscriptible par l'utilisateur non-root 13:13 (proxy) du conteneur.
+      - /var/spool/squid:size=16m,mode=1777
+      - /var/log/squid:size=8m,mode=1777
+      # squid écrit son pid dans /run/squid.pid — /var/run n'est qu'un symlink vers
+      # /run sur Ubuntu, il faut monter le tmpfs sur la vraie cible.
+      - /run:size=4m,mode=1777
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
+    # Squid tente par défaut un setuid/setgid interne vers l'utilisateur "proxy"
+    # (comportement normal quand démarré root) — incompatible avec cap_drop: ALL
+    # (EPERM sur setgid/initgroups). Le faire démarrer directement en uid/gid 13
+    # (proxy:proxy) évite cette bascule interne : squid détecte qu'il n'est déjà
+    # plus root et saute l'étape.
+    user: "13:13"
     networks: [mcp-sandbox-net, egress-net]
     restart: "no"
 
