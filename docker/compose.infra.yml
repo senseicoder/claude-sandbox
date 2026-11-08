@@ -73,10 +73,13 @@ services:
         target: /home/user/.claude
         read_only: false
 
-      # MCP de la variante uniquement — lecture seule.
+      # MCP de la variante uniquement — lecture seule. Chargé explicitement par
+      # --mcp-config + --strict-mcp-config (scripts/run-infra.sh) : avec CLAUDE_CONFIG_DIR,
+      # un fichier $HOME/.claude.json monté à part ne serait pas lu, et --strict-mcp-config
+      # écarte tout autre MCP (profil, projet).
       - type: bind
         source: ../config/mcp-infra.json
-        target: /home/user/.claude.json
+        target: /home/user/mcp-infra.json
         read_only: true
 
       # Dossier d'échange propre à la variante (convention ~/Work/cnt/<nom-conteneur>,
