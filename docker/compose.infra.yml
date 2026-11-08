@@ -89,12 +89,15 @@ services:
         target: /exchange
         read_only: false
 
-      # Pas de ~/www ni du vault Obsidian par défaut (choix à trancher, ADR-004) :
-      # exemple d'un montage en LECTURE SEULE des dépôts pro, à décommenter si voulu.
-      # - type: bind
-      #   source: ${HOME}/www/e
-      #   target: /home/cedric/www/e
-      #   read_only: true
+      # Dépôts pro ~/www/e — en ÉCRITURE (décision de l'opérateur, 2026-11-08) : le Claude
+      # isolé modifie le code et commite localement. Il ne peut pas pousser : aucune clé
+      # Git ni jeton dans le conteneur, le push reste à l'opérateur (et les PR passent par
+      # le MCP GitHub à jeton à grain fin). Même chemin absolu que l'hôte (ADR-003).
+      # Ni ~/www/c (dépôts perso) ni le vault Obsidian : hors du besoin infra.
+      - type: bind
+        source: ${HOME}/www/e
+        target: /home/cedric/www/e
+        read_only: false
 
     environment:
       - HOME=/home/user
@@ -104,8 +107,14 @@ services:
       # Connecteurs MCP de claude.ai désactivés : ils passeraient par
       # mcp-proxy.anthropic.com, non autorisé par le proxy (network-config).
       - ENABLE_CLAUDEAI_MCP_SERVERS=false
+      # Identité des commits faits dans ~/www/e : lue sur l'hôte par run-infra.sh
+      # (git config --global), jamais écrite dans ce dépôt. Aucune clé ni jeton transmis.
+      - GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME:-}
+      - GIT_AUTHOR_EMAIL=${GIT_AUTHOR_EMAIL:-}
+      - GIT_COMMITTER_NAME=${GIT_AUTHOR_NAME:-}
+      - GIT_COMMITTER_EMAIL=${GIT_AUTHOR_EMAIL:-}
 
-    working_dir: /exchange
+    working_dir: /home/cedric/www/e
     stdin_open: true
     tty: true
     restart: "no"
