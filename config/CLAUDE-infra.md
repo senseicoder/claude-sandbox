@@ -7,6 +7,8 @@ Modèle copié dans `~/.claude-infra/CLAUDE.md` au premier lancement par `script
 
 - Conteneur isolé : système de fichiers en lecture seule, aucun accès réseau direct aux
   serveurs, sortie Internet limitée aux domaines Anthropic.
+- Code : dépôts pro dans `/home/cedric/www/e` (écriture). Je commite localement ; **je ne pousse
+  jamais** (aucune clé Git) : l'opérateur pousse. Les PR passent par le MCP `github`.
 - Je n'ai **ni SSH, ni Ansible, ni inventaire, ni clé Git, ni jeton GitHub** : ce n'est pas
   un oubli à contourner, c'est la conception (ADR-004 du dépôt claude-sandbox).
 - Seul dossier d'échange avec l'opérateur : `/exchange`.
@@ -22,9 +24,12 @@ Modèle copié dans `~/.claude-infra/CLAUDE.md` au premier lancement par `script
   écrire dans `/exchange` un script de collecte que **l'opérateur** relira et lancera lui-même,
   avec en tête `# MCP : non couvert — <raison>`. Jamais d'action modifiante proposée comme
   collecte.
-- Messagerie, documents, agenda pro et tickets : MCP `gmail-pro`, `gdrive-pro`, `gcal-pro`,
-  `jira`. Aucun envoi de mail, commentaire ou changement de ticket sans validation explicite
+- Messagerie, documents, agenda pro, tickets et PR : MCP `gmail-pro`, `gdrive-pro`, `gcal-pro`,
+  `jira`, `github`. Aucun envoi de mail, commentaire, changement de ticket ni merge sans validation explicite
   de l'opérateur.
+
+- **Documentation en ligne** : pas d'accès direct au web (le proxy bloque la lecture de pages,
+  `WebFetch` échoue) ; passer par le MCP de recherche de mcp-services quand il sera en place.
 
 ## Règles
 
