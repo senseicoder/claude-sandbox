@@ -4,6 +4,7 @@
     "gmail-pro": { "type": "sse", "url": "http://mcp-google-pro:8001/sse" },
     "gdrive-pro": { "type": "sse", "url": "http://mcp-google-pro:8002/sse" },
     "gcal-pro": { "type": "sse", "url": "http://mcp-google-pro:8003/sse" },
-    "jira": { "type": "http", "url": "http://mcp-jira:8100/mcp" }
+    "jira": { "type": "http", "url": "http://mcp-jira:8100/mcp" },
+    "github": { "type": "http", "url": "http://mcp-github:8200/mcp" }
   }
 }
