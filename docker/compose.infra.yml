@@ -1,0 +1,108 @@
+# Variante « infra » — Claude Code isolé pour le travail d'infrastructure.
+# Voir docs/adr/ADR-004-variante-infra.md.
+#
+# Différences avec compose.yml (variante générale) :
+# - authentification par abonnement : profil dédié ~/.claude-infra (jamais ~/.claude),
+#   connecté une fois sur l'hôte ; aucune clé API ;
+# - MCP limités à config/mcp-infra.json (mcp-infra, Google pro, Jira) ;
+# - aucun accès direct aux serveurs ni aux secrets du poste : ni agent SSH, ni inventaire,
+#   ni client Ansible, ni clé Git, ni jeton gh, ni ~/www, ni vault — les serveurs ne sont
+#   joignables que par mcp-infra (catalogue fermé de rôles de collecte).
+#
+# Lancement : scripts/run-infra.sh (chemins relatifs résolus depuis ce fichier).
+
+networks:
+  # Réseau des MCP, créé par mcp-services (internal: true, aucune route vers Internet).
+  mcp-sandbox-net:
+    external: true
+  # Sortie Internet réelle, réservée à egress-proxy — jamais rejointe par claude-infra.
+  egress-net:
+    driver: bridge
+
+services:
+  egress-proxy:
+    # Même proxy que la variante générale (ACL : domaines Anthropic seulement, voir
+    # egress-proxy/squid.conf) ; durcissement identique, justifié dans compose.yml.
+    build:
+      context: ./egress-proxy
+      dockerfile: Dockerfile
+    image: claude-sandbox/egress-proxy:latest
+    read_only: true
+    tmpfs:
+      - /var/spool/squid:size=16m,mode=1777
+      - /var/log/squid:size=8m,mode=1777
+      - /run:size=4m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    user: "13:13"
+    networks: [mcp-sandbox-net, egress-net]
+    restart: "no"
+
+  claude-infra:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # Même image que la variante générale : elle ne contient ni ssh, ni ansible, ni
+    # identifiant (Dockerfile : claude-code, git, curl, ca-certificates seulement).
+    image: claude-sandbox:latest
+
+    # Système de fichiers en lecture seule — les écritures hors volumes échouent.
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+      - /home/user/.npm:size=64m
+      - /run:size=16m
+
+    # Aucune capability Linux, aucune escalade : Claude Code n'en a pas besoin.
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    user: "1000:1000"
+
+    # Uniquement le réseau des MCP : pas d'Internet direct (seulement via egress-proxy),
+    # pas d'accès au poste hôte ni aux serveurs.
+    networks: [mcp-sandbox-net]
+    depends_on: [egress-proxy]
+
+    volumes:
+      # Profil Claude Code DÉDIÉ (config, sessions, .credentials.json de l'abonnement,
+      # CLAUDE.md propre à la variante) — en écriture : Claude doit pouvoir sauvegarder
+      # ses sessions et renouveler son jeton. Jamais ~/.claude (mémoire et réglages perso).
+      - type: bind
+        source: ${HOME}/.claude-infra
+        target: /home/user/.claude
+        read_only: false
+
+      # MCP de la variante uniquement — lecture seule.
+      - type: bind
+        source: ../config/mcp-infra.json
+        target: /home/user/.claude.json
+        read_only: true
+
+      # Dossier d'échange propre à la variante (convention ~/Work/cnt/<nom-conteneur>,
+      # ADR-003) : seul moyen de faire entrer ou sortir un fichier.
+      - type: bind
+        source: ${HOME}/Work/cnt/claude-sandbox-infra
+        target: /exchange
+        read_only: false
+
+      # Pas de ~/www ni du vault Obsidian par défaut (choix à trancher, ADR-004) :
+      # exemple d'un montage en LECTURE SEULE des dépôts pro, à décommenter si voulu.
+      # - type: bind
+      #   source: ${HOME}/www/e
+      #   target: /home/cedric/www/e
+      #   read_only: true
+
+    environment:
+      - HOME=/home/user
+      # Seule sortie réseau : egress-proxy (ACL dans egress-proxy/squid.conf).
+      - HTTPS_PROXY=http://egress-proxy:3128
+      - HTTP_PROXY=http://egress-proxy:3128
+      # Connecteurs MCP de claude.ai désactivés : ils passeraient par
+      # mcp-proxy.anthropic.com, non autorisé par le proxy (network-config).
+      - ENABLE_CLAUDEAI_MCP_SERVERS=false
+
+    working_dir: /exchange
+    stdin_open: true
+    tty: true
+    restart: "no"
