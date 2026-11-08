@@ -54,8 +54,9 @@ docker compose -f docker/compose.yml build
 ## Variante « infra » (isolée, abonnement)
 
 Claude isolé pour le travail d'infrastructure : les serveurs ne sont joignables que par le MCP
-`mcp-infra` ; ni SSH, ni Ansible, ni inventaire, ni clé Git, ni jeton GitHub, ni `~/www`, ni
-vault dans le conteneur. MCP : `mcp-infra`, Google pro, Jira (`config/mcp-infra.json`).
+`mcp-infra` ; ni SSH, ni Ansible, ni inventaire, ni clé Git, ni jeton GitHub, ni `~/www/c`, ni
+vault dans le conteneur ; `~/www/e` en écriture (commits locaux, jamais de push). MCP :
+`mcp-infra`, Google pro, Jira, GitHub (`config/mcp-infra.json`, GitHub sous conditions).
 Détail et choix : `docs/adr/ADR-004-variante-infra.md`.
 
 ```bash
