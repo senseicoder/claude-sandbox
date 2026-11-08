@@ -33,4 +33,6 @@ if [[ ! -e "$PROFIL/CLAUDE.md" ]]; then
     cp "$SCRIPT_DIR/../config/CLAUDE-infra.md" "$PROFIL/CLAUDE.md"
 fi
 
-exec docker compose -f "$COMPOSE_FILE" run --rm claude-infra "$@"
+# MCP chargés uniquement depuis config/mcp-infra.json (aucun autre, même déclaré dans le profil).
+exec docker compose -f "$COMPOSE_FILE" run --rm claude-infra \
+    --mcp-config /home/user/mcp-infra.json --strict-mcp-config "$@"
