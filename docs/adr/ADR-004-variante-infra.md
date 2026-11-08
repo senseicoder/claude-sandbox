@@ -27,8 +27,13 @@ modifier la variante générale :
    `no-new-privileges`, uid 1000, réseau `mcp-sandbox-net` seul, sortie Internet par
    `egress-proxy` uniquement. L'image ne contient ni `ssh`, ni `ansible`, ni identifiant.
 2. **Aucun accès direct aux serveurs ni aux secrets du poste** : pas d'agent SSH, pas
-   d'inventaire, pas de clé Git, pas de jeton GitHub, pas de `~/www` ni de vault par défaut.
+   d'inventaire, pas de clé Git, pas de jeton GitHub, ni `~/www/c` (perso) ni vault.
    Les serveurs ne sont joignables que par `mcp-infra`.
+2 bis. **Code : `~/www/e` en écriture** (décision de l'opérateur, 2026-11-08), même chemin
+   que l'hôte. Commits locaux avec l'identité git de l'hôte transmise par l'environnement ;
+   **aucun push possible** (pas de clé Git) : l'opérateur pousse, les PR passent par le MCP
+   GitHub. Vérifié le 2026-11-08 : aucun des 67 dépôts de `~/www/e` n'a de jeton dans sa
+   remote ni de jeton GitHub dans un `.env` de premier niveau.
 3. **Authentification par abonnement**, jamais de clé API (le script refuse
    `ANTHROPIC_API_KEY`) : profil dédié `~/.claude-infra`, connecté une fois sur l'hôte avec
    `CLAUDE_CONFIG_DIR=~/.claude-infra claude` puis `/login`. Les identifiants vont dans
@@ -52,7 +57,7 @@ modifier la variante générale :
    | `imap` | exclus | décision de l'opérateur |
    | `mindwtr` | exclu, à trancher | gestion de tâches personnelle |
    | `freebox`, `homeassistant`, `tuya` | exclus, à trancher | réseau et domotique de la maison |
-   | `github` | exclu, à trancher | absent de `mcp-sandbox-net` dans mcp-services ; et l'accès GitHub de cette variante doit passer par des tokens à grain fin dédiés, pas par le jeton du poste |
+   | `github` | inclus (opérateur, 2026-11-08), **sous conditions** | ne fonctionnera qu'une fois `mcp-github` (mcp-services) rattaché à `mcp-sandbox-net` et lancé avec un **jeton à grain fin dédié, sans droit de merge** ; aujourd'hui il n'est pas lancé et utilise le jeton classique du poste, qui peut merger — à ne pas exposer tel quel au Claude isolé |
 
 6. **CLAUDE.md du profil** : modèle `config/CLAUDE-infra.md` (serveurs par `mcp-infra`
    seulement, catalogue d'abord, script de collecte remis à l'opérateur dans `/exchange` si
@@ -61,9 +66,13 @@ modifier la variante générale :
 
 ## Conséquences
 
-- Le Claude isolé ne peut modifier aucun dépôt : il produit dans `/exchange` (scripts,
-  analyses, correctifs) et l'opérateur reprend. Un montage en lecture seule de dépôts est
-  proposé en commentaire dans le compose, à décider.
+- Le Claude isolé modifie et commite dans `~/www/e` mais ne pousse jamais : la publication
+  reste un geste de l'opérateur (ou une PR via le MCP GitHub à jeton à grain fin).
+- **Documentation en ligne** : la lecture de pages (`WebFetch`) part du conteneur et est
+  bloquée par le proxy (domaines Anthropic seulement). Décision de l'opérateur (2026-11-08) :
+  elle passera par un **MCP de recherche** dans mcp-services (lecture seule, journalisé),
+  plutôt que d'ouvrir le proxy au web — ouvrir le proxy permettrait d'envoyer des données
+  vers n'importe quel site.
 - Pas de mémoire ni de wiki partagés avec le profil principal : volontaire (pas de mélange
   pro/perso), mais ce Claude repart d'un contexte plus pauvre.
 - Le proxy élargi profite aussi à la variante générale (même `squid.conf`) ; il reste limité
@@ -74,7 +83,9 @@ modifier la variante générale :
 Conformément au `CLAUDE.md` du dépôt, **Docker n'a pas été lancé** : ni build, ni démarrage.
 Restent à vérifier au premier test réel : la connexion par abonnement à travers le proxy
 (liste de domaines suffisante ?), la joignabilité de chaque MCP sur `mcp-sandbox-net`,
-l'impossibilité d'un `ssh`/`ansible` depuis le conteneur, la lecture du CLAUDE.md du profil.
+l'impossibilité d'un `ssh`/`ansible` depuis le conteneur, la lecture du CLAUDE.md du profil,
+les commits dans `~/www/e` (identité, droits uid 1000), le comportement de `WebSearch`
+(réputé exécuté côté Anthropic, à confirmer).
 
 ## Alternatives rejetées
 
