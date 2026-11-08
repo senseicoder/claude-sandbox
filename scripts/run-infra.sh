@@ -33,6 +33,15 @@ if [[ ! -e "$PROFIL/CLAUDE.md" ]]; then
     cp "$SCRIPT_DIR/../config/CLAUDE-infra.md" "$PROFIL/CLAUDE.md"
 fi
 
+# Identité des commits faits dans ~/www/e (monté en écriture) : celle de l'hôte, transmise
+# par l'environnement (voir compose.infra.yml) — rien n'est écrit dans ce dépôt.
+GIT_AUTHOR_NAME="$(git config --global user.name || true)"
+GIT_AUTHOR_EMAIL="$(git config --global user.email || true)"
+export GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL
+if [[ -z "$GIT_AUTHOR_NAME" || -z "$GIT_AUTHOR_EMAIL" ]]; then
+    echo "AVERTISSEMENT : identité git globale absente — les commits échoueront dans le conteneur." >&2
+fi
+
 # MCP chargés uniquement depuis config/mcp-infra.json (aucun autre, même déclaré dans le profil).
 exec docker compose -f "$COMPOSE_FILE" run --rm claude-infra \
     --mcp-config /home/user/mcp-infra.json --strict-mcp-config "$@"
