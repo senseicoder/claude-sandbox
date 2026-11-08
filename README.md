@@ -51,6 +51,26 @@ docker compose -f docker/compose.yml build
 ./scripts/run.sh
 ```
 
+## Variante « infra » (isolée, abonnement)
+
+Claude isolé pour le travail d'infrastructure : les serveurs ne sont joignables que par le MCP
+`mcp-infra` ; ni SSH, ni Ansible, ni inventaire, ni clé Git, ni jeton GitHub, ni `~/www`, ni
+vault dans le conteneur. MCP : `mcp-infra`, Google pro, Jira (`config/mcp-infra.json`).
+Détail et choix : `docs/adr/ADR-004-variante-infra.md`.
+
+```bash
+# 1. Une seule fois, sur l'hôte : connecter le profil dédié par abonnement (pas de clé API)
+CLAUDE_CONFIG_DIR=~/.claude-infra claude     # puis /login, puis /exit
+
+# 2. Construire les images (comme la variante générale)
+docker compose -f docker/compose.infra.yml build
+
+# 3. Lancer une session
+./scripts/run-infra.sh
+```
+
+Échanges de fichiers : `~/Work/cnt/claude-sandbox-infra` (hôte) ↔ `/exchange` (conteneur).
+
 ## Architecture
 
 ```
