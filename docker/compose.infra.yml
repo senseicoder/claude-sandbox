@@ -38,6 +38,46 @@ services:
     networks: [mcp-sandbox-net, egress-net]
     restart: "no"
 
+  # Relais LECTURE SEULE vers Grafana, Alertmanager, GoAlert, Semaphore (issue #4, ADR-007).
+  # Profil « supervision » : lancé par run-infra.sh seulement si la configuration de
+  # l'opérateur existe. Il détient jetons et certificat client ; claude-infra ne les voit
+  # jamais et ne joint ces outils que par lui (http://supervision-ro:8091…8094).
+  supervision-ro:
+    profiles: [supervision]
+    # Image nginx officielle « unprivileged » (écoute sans privilège, pid dans /tmp),
+    # version épinglée ; même mécanisme de gabarits que l'image nginx officielle.
+    image: nginxinc/nginx-unprivileged:1.27-alpine
+    read_only: true
+    tmpfs:
+      # conf.d : l'entrypoint y écrit la configuration générée depuis le gabarit.
+      - /etc/nginx/conf.d:size=1m,mode=1777
+      - /tmp:size=16m,mode=1777
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    # uid de l'opérateur : lit les fichiers de ~/.config/claude-sandbox-infra/supervision
+    # (mode 600) sans les ouvrir à un autre utilisateur.
+    user: "1000:1000"
+    # mcp-sandbox-net : joint par claude-infra ; egress-net : sortie vers les outils.
+    networks: [mcp-sandbox-net, egress-net]
+    env_file:
+      # Jetons et URL des outils (procédure dans ADR-007) — hors dépôt, mode 600.
+      - path: ${HOME}/.config/claude-sandbox-infra/supervision.env
+        required: false
+    environment:
+      # Seules ces variables sont substituées dans le gabarit (les $variables nginx restent).
+      - NGINX_ENVSUBST_FILTER=^(GRAFANA|ALERTMANAGER|GOALERT|SEMAPHORE)_
+    volumes:
+      - type: bind
+        source: ./supervision-ro/supervision.conf.template
+        target: /etc/nginx/templates/supervision.conf.template
+        read_only: true
+      # Certificat client Grafana (et sa clé), fournis par l'opérateur — lecture seule.
+      - type: bind
+        source: ${HOME}/.config/claude-sandbox-infra/supervision
+        target: /etc/supervision
+        read_only: true
+    restart: "no"
+
   claude-infra:
     build:
       context: .
@@ -104,6 +144,10 @@ services:
       # Seule sortie réseau : egress-proxy (ACL dans egress-proxy/squid.conf).
       - HTTPS_PROXY=http://egress-proxy:3128
       - HTTP_PROXY=http://egress-proxy:3128
+      # Le relais de supervision se joint en direct sur mcp-sandbox-net, pas par le proxy
+      # (qui le refuserait : il n'autorise que des domaines Anthropic). ADR-007.
+      - NO_PROXY=supervision-ro
+      - no_proxy=supervision-ro
       # Connecteurs MCP de claude.ai désactivés : ils passeraient par
       # mcp-proxy.anthropic.com, non autorisé par le proxy (network-config).
       - ENABLE_CLAUDEAI_MCP_SERVERS=false
