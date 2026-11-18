@@ -6,8 +6,10 @@
 #   connecté une fois sur l'hôte ; aucune clé API ;
 # - MCP limités à config/mcp-infra.json (mcp-infra, Google pro, Jira) ;
 # - aucun accès direct aux serveurs ni aux secrets du poste : ni agent SSH, ni inventaire,
-#   ni client Ansible, ni clé Git, ni jeton gh, ni ~/www, ni vault — les serveurs ne sont
-#   joignables que par mcp-infra (catalogue fermé de rôles de collecte).
+#   ni client Ansible, ni clé Git, ni jeton gh, ni ~/www/c, ni vault — les serveurs ne sont
+#   joignables que par mcp-infra (catalogue fermé de rôles de collecte) ;
+# - scripts de collecte non couverts déposés dans infra-audit/ pour infra-run (ADR-006),
+#   lancés par l'opérateur sur l'hôte, jamais depuis le conteneur.
 #
 # Lancement : scripts/run-infra.sh (chemins relatifs résolus depuis ce fichier).
 
@@ -98,6 +100,26 @@ services:
         source: ${HOME}/www/e
         target: /home/cedric/www/e
         read_only: false
+
+      # Dossier des scripts « script+log » lu par infra-run sur l'hôte (issue #3, ADR-006) —
+      # en ÉCRITURE, seul dossier du poste ouvert en plus de ~/www/e et du profil. Le Claude
+      # isolé y dépose ses scripts (AAAAMMJJ-HHMMSS-<hôte>-<contexte>.sh) et y lit les .log.
+      # Même chemin absolu que l'hôte (ADR-003) : les LOG="/home/cedric/…" des scripts
+      # restent justes. Fichiers créés en uid 1000 = utilisateur de l'hôte : infra-run les
+      # traite comme les siens. Le lancement reste humain : infra-run tourne sur l'hôte, et
+      # le conteneur n'a ni ansible, ni ssh, ni route vers les serveurs.
+      - type: bind
+        source: ${HOME}/Sync/Central/Dossiers/claude/data/infra-audit
+        target: /home/cedric/Sync/Central/Dossiers/claude/data/infra-audit
+        read_only: false
+
+      # Journal et état d'infra-run (.runner/ : journal par poste, statuts « refuse »,
+      # « demarre »…) — LECTURE SEULE, monté par-dessus le précédent : le Claude isolé peut
+      # le lire mais ni falsifier un statut ni effacer une trace d'exécution.
+      - type: bind
+        source: ${HOME}/Sync/Central/Dossiers/claude/data/infra-audit/.runner
+        target: /home/cedric/Sync/Central/Dossiers/claude/data/infra-audit/.runner
+        read_only: true
 
     environment:
       - HOME=/home/user
