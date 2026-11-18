@@ -42,6 +42,21 @@ if [[ -z "$GIT_AUTHOR_NAME" || -z "$GIT_AUTHOR_EMAIL" ]]; then
     echo "AVERTISSEMENT : identité git globale absente — les commits échoueront dans le conteneur." >&2
 fi
 
+# MCP GitHub restreint (issue #2, ADR-005) : lancé seulement si l'opérateur a déposé le jeton à
+# grain fin de la variante. Le fichier n'est jamais affiché ; son contenu ne va qu'au conteneur
+# mcp-github-restreint (claude-infra ne le reçoit pas). Sans fichier : pas de MCP github.
+JETON_GITHUB="${CLAUDE_SANDBOX_GITHUB_TOKEN_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/claude-sandbox/github-token-infra}"
+if [[ -s "$JETON_GITHUB" ]]; then
+    if [[ "$(stat -c %a "$JETON_GITHUB")" != "600" ]]; then
+        echo "ERREUR : $JETON_GITHUB doit être en mode 600 (chmod 600)." >&2
+        exit 1
+    fi
+    SANDBOX_GITHUB_TOKEN="$(head -n 1 "$JETON_GITHUB")" \
+        docker compose -f "$COMPOSE_FILE" --profile github up -d mcp-github-restreint
+else
+    echo "Info : pas de jeton GitHub de la variante ($JETON_GITHUB) — MCP github indisponible (ADR-005)." >&2
+fi
+
 # MCP chargés uniquement depuis config/mcp-infra.json (aucun autre, même déclaré dans le profil).
 exec docker compose -f "$COMPOSE_FILE" run --rm claude-infra \
     --mcp-config /home/user/mcp-infra.json --strict-mcp-config "$@"

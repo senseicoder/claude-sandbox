@@ -56,7 +56,7 @@ docker compose -f docker/compose.yml build
 Claude isolé pour le travail d'infrastructure : les serveurs ne sont joignables que par le MCP
 `mcp-infra` ; ni SSH, ni Ansible, ni inventaire, ni clé Git, ni jeton GitHub, ni `~/www/c`, ni
 vault dans le conteneur ; `~/www/e` en écriture (commits locaux, jamais de push). MCP :
-`mcp-infra`, Google pro, Jira, GitHub (`config/mcp-infra.json`, GitHub sous conditions).
+`mcp-infra`, Google pro, Jira, GitHub (`config/mcp-infra.json`). GitHub passe par une instance dédiée restreinte (sans merge), lancée seulement si le jeton à grain fin de la variante est déposé : procédure et test dans `docs/adr/ADR-005-github-restreint.md` et `scripts/test-github-restreint.sh`.
 Détail et choix : `docs/adr/ADR-004-variante-infra.md`.
 
 ```bash

@@ -4,7 +4,7 @@
 # Différences avec compose.yml (variante générale) :
 # - authentification par abonnement : profil dédié ~/.claude-infra (jamais ~/.claude),
 #   connecté une fois sur l'hôte ; aucune clé API ;
-# - MCP limités à config/mcp-infra.json (mcp-infra, Google pro, Jira) ;
+# - MCP limités à config/mcp-infra.json (mcp-infra, Google pro, Jira, fetch, GitHub restreint) ;
 # - aucun accès direct aux serveurs ni aux secrets du poste : ni agent SSH, ni inventaire,
 #   ni client Ansible, ni clé Git, ni jeton gh, ni ~/www, ni vault — les serveurs ne sont
 #   joignables que par mcp-infra (catalogue fermé de rôles de collecte).
@@ -36,6 +36,34 @@ services:
     security_opt: [no-new-privileges:true]
     user: "13:13"
     networks: [mcp-sandbox-net, egress-net]
+    restart: "no"
+
+  mcp-github-restreint:
+    # MCP GitHub DÉDIÉ au Claude isolé (issue #2, ADR-005) — jamais le mcp-github de mcp-services,
+    # qui porte le jeton classique du poste (peut merger). Lancé par scripts/run-infra.sh
+    # seulement si le jeton à grain fin de la variante existe (profil compose « github »).
+    image: ghcr.io/github/github-mcp-server:latest
+    command: ["http", "--port", "8200", "--listen-host", "0.0.0.0"]
+    profiles: [github]
+    # Mêmes durcissements que les autres services : binaire Go officiel, aucun besoin d'écrire,
+    # de capability ni d'escalade.
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    user: "1000:1000"
+    # mcp-sandbox-net : joignable par claude-infra ; egress-net : sortie vers api.github.com
+    # (le jeton reste dans ce conteneur, claude-infra ne le voit jamais).
+    networks: [mcp-sandbox-net, egress-net]
+    environment:
+      # Jeton à grain fin dédié (procédure : ADR-005), lu par run-infra.sh dans un fichier de
+      # l'hôte, jamais écrit dans ce dépôt.
+      - GITHUB_PERSONAL_ACCESS_TOKEN=${SANDBOX_GITHUB_TOKEN:-}
+      # Restriction CÔTÉ SERVEUR (le Claude isolé a Bash et peut joindre ce service sans passer
+      # par Claude Code : des en-têtes X-MCP-* posés par le client ne seraient pas une barrière).
+      # Le merge ne peut pas être retiré par le jeton (PUT …/pulls/N/merge = Contents: write,
+      # la même permission que les commits) : il l'est ici, avec les autres outils destructeurs.
+      - GITHUB_TOOLSETS=context,repos,pull_requests,issues
+      - GITHUB_EXCLUDE_TOOLS=merge_pull_request,delete_repository,create_repository,fork_repository,delete_file
     restart: "no"
 
   claude-infra:

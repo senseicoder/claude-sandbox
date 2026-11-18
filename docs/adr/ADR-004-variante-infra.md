@@ -57,7 +57,7 @@ modifier la variante générale :
    | `imap` | exclus | décision de l'opérateur |
    | `mindwtr` | exclu, à trancher | gestion de tâches personnelle |
    | `freebox`, `homeassistant`, `tuya` | exclus, à trancher | réseau et domotique de la maison |
-   | `github` | inclus (opérateur, 2026-11-08), **sous conditions** | ne fonctionnera qu'une fois `mcp-github` (mcp-services) rattaché à `mcp-sandbox-net` et lancé avec un **jeton à grain fin dédié, sans droit de merge** ; aujourd'hui il n'est pas lancé et utilise le jeton classique du poste, qui peut merger — à ne pas exposer tel quel au Claude isolé |
+   | `github` | inclus (opérateur, 2026-11-08), **restreint** | instance dédiée `mcp-github-restreint` (compose.infra), outils filtrés côté serveur (sans merge), jeton à grain fin dédié déposé par l'opérateur — voir ADR-005 |
 
 6. **CLAUDE.md du profil** : modèle `config/CLAUDE-infra.md` (serveurs par `mcp-infra`
    seulement, catalogue d'abord, script de collecte remis à l'opérateur dans `/exchange` si

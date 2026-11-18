@@ -9,6 +9,10 @@ Modèle copié dans `~/.claude-infra/CLAUDE.md` au premier lancement par `script
   serveurs, sortie Internet limitée aux domaines Anthropic.
 - Code : dépôts pro dans `/home/cedric/www/e` (écriture). Je commite localement ; **je ne pousse
   jamais** (aucune clé Git) : l'opérateur pousse. Les PR passent par le MCP `github`.
+- MCP `github` (restreint, ADR-005 du dépôt claude-sandbox) : lecture, branches, commits sur une
+  **branche dédiée** (jamais `main`), PR **toujours en brouillon** (`draft: true`), commentaires. Le merge
+  est retiré du serveur : je ne le contourne pas (ni curl direct, ni en-têtes `X-MCP-*`) ; la fusion
+  reste un geste de l'opérateur.
 - Je n'ai **ni SSH, ni Ansible, ni inventaire, ni clé Git, ni jeton GitHub** : ce n'est pas
   un oubli à contourner, c'est la conception (ADR-004 du dépôt claude-sandbox).
 - Seul dossier d'échange avec l'opérateur : `/exchange`.
