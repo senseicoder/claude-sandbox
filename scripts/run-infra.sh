@@ -42,6 +42,23 @@ if [[ -z "$GIT_AUTHOR_NAME" || -z "$GIT_AUTHOR_EMAIL" ]]; then
     echo "AVERTISSEMENT : identité git globale absente — les commits échoueront dans le conteneur." >&2
 fi
 
+# Relais lecture seule vers les outils de supervision (ADR-007) : lancé seulement si
+# l'opérateur a déposé sa configuration. Jetons et certificat restent dans ce relais ;
+# ce script ne les lit pas, il vérifie seulement que personne d'autre ne peut les lire.
+SUPERVISION="$HOME/.config/claude-sandbox-infra"
+if [[ -f "$SUPERVISION/supervision.env" ]]; then
+    mkdir -p "$SUPERVISION/supervision"
+    lisibles="$(find "$SUPERVISION/supervision.env" "$SUPERVISION/supervision" -type f -perm /077 2>/dev/null || true)"
+    if [[ -n "$lisibles" ]]; then
+        echo "ERREUR : fichiers de supervision lisibles par d'autres (chmod 600 attendu) :" >&2
+        echo "$lisibles" >&2
+        exit 1
+    fi
+    docker compose -f "$COMPOSE_FILE" --profile supervision up -d supervision-ro
+else
+    echo "Supervision : $SUPERVISION/supervision.env absent — relais non lancé (ADR-007)." >&2
+fi
+
 # MCP chargés uniquement depuis config/mcp-infra.json (aucun autre, même déclaré dans le profil).
 exec docker compose -f "$COMPOSE_FILE" run --rm claude-infra \
     --mcp-config /home/user/mcp-infra.json --strict-mcp-config "$@"

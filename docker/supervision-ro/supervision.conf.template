@@ -1,0 +1,103 @@
+# Relais LECTURE SEULE vers les outils de supervision et de déploiement (issue #4, ADR-007).
+#
+# Gabarit nginx : l'entrypoint de l'image remplace les ${VARIABLES} définies dans
+# l'environnement (fichier ~/.config/claude-sandbox-infra/supervision.env, jamais dans ce
+# dépôt) et écrit le résultat dans /etc/nginx/conf.d/. Les variables propres à nginx
+# ($remote_addr…) ne sont pas définies dans l'environnement : elles restent intactes.
+#
+# Principe :
+# - le Claude isolé appelle http://supervision-ro:<port> en clair, SANS jeton : c'est ce
+#   relais qui ajoute le jeton (et le certificat client Grafana). Le Claude isolé ne voit
+#   jamais un secret ;
+# - par outil, seules les méthodes et chemins de LECTURE passent ; tout le reste → 403,
+#   sans que la requête atteigne l'outil (indispensable pour Alertmanager, sans auth) ;
+# - chaque requête est journalisée (sortie standard → docker logs), sans en-tête
+#   d'authentification.
+#
+# Les *_URL sont de la forme https://hôte[:port], SANS chemin ni barre finale : l'URI de la
+# requête est transmise telle quelle. Un outil non utilisé : http://127.0.0.1:9 (refus).
+
+log_format supervision '$time_iso8601 $server_port $request_method $uri $status $body_bytes_sent';
+access_log /dev/stdout supervision;
+error_log  /dev/stderr warn;
+
+client_max_body_size 1m;
+proxy_ssl_server_name on;
+proxy_ssl_verify      on;
+proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
+proxy_connect_timeout 10s;
+proxy_read_timeout    60s;
+
+# --- Grafana (Prometheus/Loki via les sources de données) — port 8091 -----------------------
+# Jeton d'un compte de service Grafana en rôle Viewer + certificat client exigé par le frontal.
+server {
+    listen 8091;
+
+    # Requêtes de données : seul POST autorisé (lecture, mais Grafana les reçoit en POST).
+    location = /api/ds/query {
+        limit_except POST { deny all; }
+        proxy_pass ${GRAFANA_URL};
+        proxy_set_header Host $proxy_host;
+        proxy_set_header Authorization "Bearer ${GRAFANA_TOKEN}";
+        proxy_set_header Cookie "";
+        proxy_ssl_certificate     /etc/supervision/grafana-client.crt;
+        proxy_ssl_certificate_key /etc/supervision/grafana-client.key;
+    }
+    # Reste de l'API : GET seulement (tableaux de bord, sources, proxy de source en lecture).
+    location /api/ {
+        limit_except GET { deny all; }
+        proxy_pass ${GRAFANA_URL};
+        proxy_set_header Host $proxy_host;
+        proxy_set_header Authorization "Bearer ${GRAFANA_TOKEN}";
+        proxy_set_header Cookie "";
+        proxy_ssl_certificate     /etc/supervision/grafana-client.crt;
+        proxy_ssl_certificate_key /etc/supervision/grafana-client.key;
+    }
+    location / { return 403; }
+}
+
+# --- Alertmanager — port 8092 ---------------------------------------------------------------
+# Pas d'authentification côté outil (constaté) : le filtrage GET ici est la SEULE barrière
+# contre la création de silences (POST /api/v2/silences) ou d'alertes.
+server {
+    listen 8092;
+    location /api/v2/ {
+        limit_except GET { deny all; }
+        proxy_pass ${ALERTMANAGER_URL};
+        proxy_set_header Host $proxy_host;
+        # Vide = pas d'en-tête envoyé ; à renseigner si un jour l'outil exige une auth.
+        proxy_set_header Authorization "${ALERTMANAGER_AUTHORIZATION}";
+    }
+    location / { return 403; }
+}
+
+# --- GoAlert — port 8093 --------------------------------------------------------------------
+# API GraphQL en POST : le relais ne peut pas distinguer requête et mutation. La lecture
+# seule repose sur la clé API GoAlert, dont la politique liste les seuls champs autorisés
+# (champs de lecture uniquement, aucune mutation) — voir ADR-007.
+server {
+    listen 8093;
+    location = /api/graphql {
+        limit_except POST { deny all; }
+        proxy_pass ${GOALERT_URL};
+        proxy_set_header Host $proxy_host;
+        proxy_set_header Authorization "Bearer ${GOALERT_TOKEN}";
+        proxy_set_header Cookie "";
+    }
+    location / { return 403; }
+}
+
+# --- Semaphore (historique des tâches) — port 8094 ------------------------------------------
+# Jeton d'un utilisateur dédié, rôle « Guest » dans les projets concernés ; GET seulement ici,
+# ce qui interdit aussi le lancement de tâche même si le rôle était trop large.
+server {
+    listen 8094;
+    location /api/ {
+        limit_except GET { deny all; }
+        proxy_pass ${SEMAPHORE_URL};
+        proxy_set_header Host $proxy_host;
+        proxy_set_header Authorization "Bearer ${SEMAPHORE_TOKEN}";
+        proxy_set_header Cookie "";
+    }
+    location / { return 403; }
+}

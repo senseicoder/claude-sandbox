@@ -72,6 +72,13 @@ docker compose -f docker/compose.infra.yml build
 
 Échanges de fichiers : `~/Work/cnt/claude-sandbox-infra` (hôte) ↔ `/exchange` (conteneur).
 
+Outils de supervision et de déploiement (Grafana, Alertmanager, GoAlert, Semaphore) **en
+lecture seule** : par le relais `supervision-ro` (`http://supervision-ro:8091…8094`), qui
+détient jetons et certificat client et ne laisse passer que les lectures. Configuration hors
+dépôt (`~/.config/claude-sandbox-infra/`, modèle `config/supervision.env.exemple`), comptes
+à créer et procédure : `docs/adr/ADR-007-supervision-lecture-seule.md`. Test :
+`./scripts/test-supervision.sh`.
+
 ## Architecture
 
 ```
