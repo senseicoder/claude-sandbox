@@ -46,6 +46,24 @@ Modèle copié dans `~/.claude-infra/CLAUDE.md` au premier lancement par `script
   `jira`, `github`. Aucun envoi de mail, commentaire, changement de ticket ni merge sans validation explicite
   de l'opérateur.
 
+- **Supervision et déploiement, en lecture seule** (ADR-007 du dépôt claude-sandbox), par le
+  relais `supervision-ro`, en HTTP simple et **sans jeton** (le relais l'ajoute ; je n'en ai
+  aucun et n'en cherche pas) :
+
+  | Outil | Adresse | Ce qui passe |
+  |---|---|---|
+  | Grafana (Prometheus, Loki) | `http://supervision-ro:8091` | `GET /api/…`, `POST /api/ds/query` |
+  | Alertmanager | `http://supervision-ro:8092` | `GET /api/v2/…` (alertes, silences, statut) |
+  | GoAlert | `http://supervision-ro:8093` | `POST /api/graphql`, champs de lecture autorisés par la clé |
+  | Semaphore | `http://supervision-ro:8094` | `GET /api/…` (projets, historique des tâches) |
+
+  Exemples : `curl -s http://supervision-ro:8092/api/v2/alerts`,
+  `curl -s http://supervision-ro:8094/api/project/<id>/tasks`. Un 403 du relais est voulu
+  (écriture ou chemin non prévu) : poser un silence, acquitter, lancer une tâche reste à
+  l'opérateur. Relais injoignable = configuration absente côté opérateur : le dire.
+  Une sortie peut contenir des noms d'hôtes et des messages d'erreur : jamais de secret
+  recopié.
+
 - **Documentation en ligne** : pas d'accès direct au web (le proxy bloque la lecture de pages,
   `WebFetch` échoue) ; passer par le MCP de recherche de mcp-services quand il sera en place.
 

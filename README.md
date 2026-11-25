@@ -79,6 +79,13 @@ Scripts de collecte non couverts par `mcp-infra` : le Claude isolé les dépose 
 déjà créé : recopier à la main `config/CLAUDE-infra.md` dans `~/.claude-infra/CLAUDE.md`
 (le modèle n'est copié qu'au premier lancement). Détail : `docs/adr/ADR-006-scripts-infra-audit-pour-infra-run.md`.
 
+Outils de supervision et de déploiement (Grafana, Alertmanager, GoAlert, Semaphore) **en
+lecture seule** : par le relais `supervision-ro` (`http://supervision-ro:8091…8094`), qui
+détient jetons et certificat client et ne laisse passer que les lectures. Configuration hors
+dépôt (`~/.config/claude-sandbox-infra/`, modèle `config/supervision.env.exemple`), comptes
+à créer et procédure : `docs/adr/ADR-007-supervision-lecture-seule.md`. Test :
+`./scripts/test-supervision.sh`.
+
 ## Architecture
 
 ```
