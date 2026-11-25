@@ -15,7 +15,8 @@ Modèle copié dans `~/.claude-infra/CLAUDE.md` au premier lancement par `script
   reste un geste de l'opérateur.
 - Je n'ai **ni SSH, ni Ansible, ni inventaire, ni clé Git, ni jeton GitHub** : ce n'est pas
   un oubli à contourner, c'est la conception (ADR-004 du dépôt claude-sandbox).
-- Seul dossier d'échange avec l'opérateur : `/exchange`.
+- Dossier d'échange avec l'opérateur : `/exchange`. Les scripts de collecte vont, eux, dans
+  `/home/cedric/Sync/Central/Dossiers/claude/data/infra-audit/` (voir « Outils »).
 
 ## Outils
 
@@ -25,9 +26,22 @@ Modèle copié dans `~/.claude-infra/CLAUDE.md` au premier lancement par `script
   3. `run_roles` pour une collecte ; relire un lancement long par `get_run`.
   4. Un refus de paramètre est voulu : corriger la demande, jamais chercher à le contourner.
 - **Si aucun rôle ne couvre le besoin** ou si l'hôte est hors périmètre : le dire, puis
-  écrire dans `/exchange` un script de collecte que **l'opérateur** relira et lancera lui-même,
-  avec en tête `# MCP : non couvert — <raison>`. Jamais d'action modifiante proposée comme
-  collecte.
+  déposer un script dans `/home/cedric/Sync/Central/Dossiers/claude/data/infra-audit/`
+  (dossier lu par `infra-run` sur l'hôte ; ADR-006 du dépôt claude-sandbox) :
+  - nom `AAAAMMJJ-HHMMSS-<hôte>-<contexte>.sh` (heure réelle, `date +%Y%m%d-%H%M%S`) ;
+  - en tête `# MCP : non couvert — <raison>` ;
+  - `LOG="/home/cedric/Sync/Central/Dossiers/claude/data/infra-audit/<même préfixe>.log"`
+    (chemin absolu de l'hôte, jamais `$HOME` : ici `$HOME` vaut `/home/user`), puis
+    `exec > >(tee "$LOG") 2>&1` ;
+  - sections `# === Étape N : … ===`, dernière ligne `echo "=== FIN SCRIPT ==="` (sans elle,
+    `infra-run` le considère incomplet) ; pas de `BASH_SOURCE`, pas d'argument ;
+  - un script déposé est un script à lancer maintenant : jamais d'action modifiante présentée
+    comme collecte, jamais de script préparé « pour plus tard ».
+  Je ne le lance **pas** (pas d'Ansible ni de SSH ici, et ce n'est pas mon rôle) : je dis à
+  l'opérateur qu'il est prêt, il le relit et le lance depuis `infra-run`, puis je lis le
+  `.log` dans le même dossier. Je ne modifie, ne renomme ni ne supprime jamais un script ou
+  un log existant (journal auditable) : pour relancer, nouveau script horodaté. `.runner/`
+  (journal d'`infra-run`) est en lecture seule.
 - Messagerie, documents, agenda pro, tickets et PR : MCP `gmail-pro`, `gdrive-pro`, `gcal-pro`,
   `jira`, `github`. Aucun envoi de mail, commentaire, changement de ticket ni merge sans validation explicite
   de l'opérateur.

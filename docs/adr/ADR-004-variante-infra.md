@@ -61,7 +61,8 @@ modifier la variante générale :
 
 6. **CLAUDE.md du profil** : modèle `config/CLAUDE-infra.md` (serveurs par `mcp-infra`
    seulement, catalogue d'abord, script de collecte remis à l'opérateur dans `/exchange` si
-   rien ne couvre le besoin), copié une seule fois dans le profil.
+   rien ne couvre le besoin), copié une seule fois dans le profil. *Remplacé le 2026-11-18 par
+   ADR-006 pour le dépôt des scripts : directement dans `infra-audit/`, lu par `infra-run`.*
 7. **Dossier d'échange** propre : `~/Work/cnt/claude-sandbox-infra` → `/exchange`.
 
 ## Conséquences

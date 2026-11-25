@@ -4,6 +4,8 @@
 #
 # Prérequis : mcp-services lancé (mcp-infra, mcp-google-pro, mcp-jira) ; profil dédié
 # ~/.claude-infra connecté une fois sur l'hôte par abonnement (voir ci-dessous).
+# Les scripts de collecte que le Claude isolé dépose dans infra-audit/ se lancent depuis
+# infra-run, sur l'hôte (ADR-006) — jamais depuis ce conteneur.
 
 set -euo pipefail
 
@@ -13,6 +15,9 @@ PROFIL="$HOME/.claude-infra"
 
 # Dossiers montés : un dossier absent fait échouer le bind mount Docker.
 mkdir -p "$HOME/Work/cnt/claude-sandbox-infra" "$PROFIL"
+# Dossier lu par infra-run et son état .runner/ (monté en lecture seule par-dessus, ADR-006) :
+# créés s'ils manquent (poste où infra-run n'a jamais tourné), sans toucher à leur contenu.
+mkdir -p "$HOME/Sync/Central/Dossiers/claude/data/infra-audit/.runner"
 chmod 700 "$PROFIL"
 
 # Authentification par abonnement : jamais de clé API dans cette variante.

@@ -72,6 +72,13 @@ docker compose -f docker/compose.infra.yml build
 
 Échanges de fichiers : `~/Work/cnt/claude-sandbox-infra` (hôte) ↔ `/exchange` (conteneur).
 
+Scripts de collecte non couverts par `mcp-infra` : le Claude isolé les dépose directement dans
+`~/Sync/Central/Dossiers/claude/data/infra-audit/` (même chemin dans le conteneur, écriture ;
+`.runner/` en lecture seule) et y lit les `.log`. **Le lancement reste à l'opérateur, depuis
+`infra-run` sur l'hôte.** Vérification du montage : `./scripts/test-infra-audit.sh`. Profil
+déjà créé : recopier à la main `config/CLAUDE-infra.md` dans `~/.claude-infra/CLAUDE.md`
+(le modèle n'est copié qu'au premier lancement). Détail : `docs/adr/ADR-006-scripts-infra-audit-pour-infra-run.md`.
+
 ## Architecture
 
 ```
@@ -82,7 +89,7 @@ claude-sandbox/
 │   └── egress-proxy/
 │       ├── Dockerfile      # squid minimal
 │       └── squid.conf      # ACL : uniquement api.anthropic.com
-├── docs/adr/                # décisions d'architecture (ADR-001 à ADR-003)
+├── docs/adr/                # décisions d'architecture (ADR-001 à ADR-006)
 ├── mcp/
 │   └── README.md
 ├── scripts/
